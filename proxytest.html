@@ -1,0 +1,56 @@
+
+<!doctype html>
+<html>
+  <head>
+    <title>Proxy Algorithm Tester</title>
+    <script type="text/javascript" src="GenerateTests.js"></script>
+    <script type="text/javascript" src="async.js"></script>
+    <script type="text/javascript" src="jquery-1.11.1.min.js"></script>
+    <script type="text/javascript" src="Proxy.js"></script>
+    <script type="text/javascript" src="tests.js"></script>
+    <script type="text/javascript" src="minitests.js"></script>
+    <script type="text/javascript" src="ProxyController.js"></script>
+    <style>
+    .proxy_box {
+      margin: 20px;
+    }
+    </style>
+  </head>
+  <body>
+Sequential Billers: 
+<select id="sequentialBillers">
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+</select>
+Proxies: 
+<select id="proxies">
+  <option value="1">1</option>
+  <option value="2">2</option>
+  <option value="3">3</option>
+  <option value="4">4</option>
+  <option value="5">5</option>
+</select>
+Proxy Assignment: 
+<select id="proxy-assignment">
+  <option value="1">Static</option>
+  <option value="2">Dynamic</option>
+</select>
+Blocked Queue Algorithm
+<select id="q-algorithm">
+  <option value="1">Penalize (Send to Back)</option>
+  <option value="2">Skip</option>
+</select>
+Proxy Assigment Algorithm
+<select id="algorithm">
+  <option value="1">Round Robin</option>
+  <option value="2">Shortest Queue</option>
+</select>
+<button id="button" type="button">Start Tests</button>
+  <h2>Proxies:</h2>
+
+
+  </body>
+</html>
