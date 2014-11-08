@@ -1,0 +1,23 @@
+For real testing:
+
+- Set max concurrent to 20
+- Make 100 tests x 1000 jobs
+- Divide durations by 10?
+
+
+-> New time scale
+-> 1 second (simulate) = 1 minute (IRL)
+-> Add new robot to waiting queue every 500 (use this number)
+-> Tasks should range from 500 to 10000
+
+
+- Need to make analysis code
+	-> Get average test run time
+	-> Get average task wait time
+	-> Get average wait/duration ratio
+
+When task removed from waiting list, decrement proxy queue for task's proxy for that biller
+
+Need to make shortest queue assignment
+Need to implement popping from waiting queue for forced sequential
+Need to implement blocked algorithms

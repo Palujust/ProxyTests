@@ -1,25 +1,15 @@
 
+//Need to specify in code: 
+//- max conncurrent running robots 
+//- which test pattern to use
+//both are in the startTests method near the top
 var proxy_array = [];
 var waiting_queue =[];
 var testStats= [];
 var currently_running = [];
-$(document).ready(function(){
-	// for(x = 0; x < 7; x++) {
-	// 	proxy_array.push(new Proxy("Address" + x, "ID NUMBER" + x))
-	// 	$("body").append("<div class='proxy_box' id='div_" + x + "'>Proxy " + x + "</div>");
-	// }
-	// setInterval(function() {
 
-	// 	for(x = 0 ; x < proxy_array.length; x ++) {
-	// 		var span_string = "Proxy " + x + "\n";
-			
-	// 		for(y = 0; y < proxy_array[x].running.length; y ++) {
-	// 			span_string += proxy_array[x].running[y].biller + "-" + proxy_array[x].running[y].id + ", "
-	// 		}
-	// 		$("#div_" + x).text(span_string);
-	// 	}
-	// }, 1000)
-	//test change
+var test_array =[testgroup, minitests, minitests2, customtest];
+$(document).ready(function(){
 	
 	$("#button").click(function() {
 		var billers = $("#sequentialBillers").val();
@@ -45,11 +35,13 @@ function startTests(paramaters) {
 	$("body").append("<div id='test_num'></div>");
 	testStats = [];
 	var proxies = [];
+	var test_sequence = test_array[3];
+	var max_concurrent_tasks = 2;
 	$(".proxy_box").remove();
 	for(var x = 0; x < paramaters.proxies; x++) {
 		proxies = proxies.concat({
 			Running: [],
-			queued: []
+			queued: {}
 		})
 		if (x == 0) {
 			$("body").append("<div class='proxy_box' id='div_" + x + "'><strong>Proxy " + x + " (Server)</strong><p></p></div>");
@@ -57,21 +49,38 @@ function startTests(paramaters) {
 			$("body").append("<div class='proxy_box' id='div_" + x + "'><strong>Proxy " + x + "</strong><p></p></div>");
 		}
 	}
-	//replace minitests with testgroup
-	async.forEachSeries(minitests, function(test, callback) {
+	
+	async.forEachSeries(test_sequence, function(test, callback) {
 		console.log("Running test " + (test.id + 1) + " of " + minitests.length)
-		$("#test_num").text("Running test " + (test.id + 1) + " of " + minitests.length)
+		$("#test_num").text("Running test " + (test.id + 1) + " of " + test_sequence.length)
 		console.log("--------------------------------------")
 		var job_count = 0;
 		var test_start = new Date().getTime();
 		var robot_time_data = [];
+		var billers_job_count = {};  //used for round robin proxy assignment
 		//This adds a new task to the waiting queue 
 		var new_robot_adder = setInterval(function() {
 			if (test.tasks[job_count]) {
 				console.log("Adding " + test.tasks[job_count].biller + " id" + job_count + " to waiting queue")
 				test.tasks[job_count].startWaitTime = new Date().getTime();
 				test.tasks[job_count].id = job_count;
-				test.tasks[job_count].force_sequential = false;//test.tasks[job_count].biller_number <= paramaters.billers ;
+				test.tasks[job_count].force_sequential = test.tasks[job_count].biller_number <= paramaters.billers ;
+				//if we are forcing sequential and the proxy assignment is static, then we need to assign a proxy
+				if (test.tasks[job_count].force_sequential){
+					if (paramaters.proxy_assign == 1){
+						console.log(JSON.stringify(billers_job_count))
+						if (paramaters.proxy_assign_alg ==1){
+							if (!billers_job_count[test.tasks[job_count].biller]) billers_job_count[test.tasks[job_count].biller] = 0;
+
+							test.tasks[job_count].proxy = billers_job_count[test.tasks[job_count].biller] % paramaters.proxies;
+							billers_job_count[test.tasks[job_count].biller]++;
+							console.log(test.tasks[job_count].biller + " id" + job_count + " proxy: " + test.tasks[job_count].proxy)
+						} else {
+							//Shortest Queue Code
+						} 
+
+					}
+				}
 				waiting_queue.push(test.tasks[job_count]);
 				job_count ++;
 				if (job_count > test.length) clearInterval(new_robot_adder)	
@@ -95,9 +104,10 @@ function startTests(paramaters) {
 					test_data: robot_time_data
 				})
 				clearInterval(robot_runner);
-				return callback();
-			} 
-			if (currently_running.length < 2) {
+				//return callback();
+			}
+			//TODO change 2 to 10 
+			if (currently_running.length < max_concurrent_tasks) {
 				//Implement the queuing logic.
 				if (waiting_queue.length > 0) {
 					if (waiting_queue[0].force_sequential == false) {
@@ -118,7 +128,7 @@ function startTests(paramaters) {
 									 break;
 								}
 							}
-							//remove from proxy's queue
+							//remove from proxy's running list
 							for(var i = 0; i < proxies[robot.proxy].Running.length; i ++) {
 								if (proxies[robot.proxy].Running[i].id === robot.id){
 									proxies[robot.proxy].Running.splice(i, 1);
@@ -137,7 +147,20 @@ function startTests(paramaters) {
 						currently_running.push()					
 									
 					} else {
+						if (paramaters.proxy_assign == 1){
+							//Use assigned proxy
+						} else {
+							//try to find an available proxy
+						}
+						//check if current robot can be run
+						//if so, run it
 
+						//else do this:
+						if (paramaters.q_algorithm == 1) {
+							//send to back
+						} else {
+							//pick the next robot
+						}
 					}
 				}
 
@@ -147,6 +170,8 @@ function startTests(paramaters) {
 		}, 10)
 	}, function() {
 		console.log("Done all tests")
+		$("#test_num").text("Done all tests")
+		console.log("--------------------------------------")
 		$("#button").prop( "disabled", false );
 	})
 
