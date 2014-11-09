@@ -18,6 +18,5 @@ For real testing:
 
 When task removed from waiting list, decrement proxy queue for task's proxy for that biller
 
-Need to make shortest queue assignment
 Need to implement popping from waiting queue for forced sequential
 Need to implement blocked algorithms

@@ -8,7 +8,7 @@ var waiting_queue =[];
 var testStats= [];
 var currently_running = [];
 
-var test_array =[testgroup, minitests, minitests2, customtest];
+var test_array =[t100by100, t5by5, t2by100, customtest];
 $(document).ready(function(){
 	
 	$("#button").click(function() {
@@ -51,7 +51,7 @@ function startTests(paramaters) {
 	}
 	
 	async.forEachSeries(test_sequence, function(test, callback) {
-		console.log("Running test " + (test.id + 1) + " of " + minitests.length)
+		console.log("Running test " + (test.id + 1) + " of " + test_sequence.length)
 		$("#test_num").text("Running test " + (test.id + 1) + " of " + test_sequence.length)
 		console.log("--------------------------------------")
 		var job_count = 0;
@@ -68,6 +68,7 @@ function startTests(paramaters) {
 				//if we are forcing sequential and the proxy assignment is static, then we need to assign a proxy
 				if (test.tasks[job_count].force_sequential){
 					if (paramaters.proxy_assign == 1){
+						//Round robin
 						console.log(JSON.stringify(billers_job_count))
 						if (paramaters.proxy_assign_alg ==1){
 							if (!billers_job_count[test.tasks[job_count].biller]) billers_job_count[test.tasks[job_count].biller] = 0;
@@ -77,6 +78,30 @@ function startTests(paramaters) {
 							console.log(test.tasks[job_count].biller + " id" + job_count + " proxy: " + test.tasks[job_count].proxy)
 						} else {
 							//Shortest Queue Code
+							var min = null;
+							var position = null;
+							var added_flag = false;
+							for(var x = 0; x < proxies.length; x ++) {
+								if (!proxies[x].queued[test.tasks[job_count].biller]){
+									proxies[x].queued[test.tasks[job_count].biller] = 1;
+									test.tasks[job_count].proxy = x;
+									added_flag = true;
+									break;
+								}
+								if (min == null){
+									position = 0;
+									min = proxies[x].queued[test.tasks[job_count].biller];
+								}
+								if (proxies[x].queued[test.tasks[job_count].biller] < min) {
+									position = x;
+									min = proxies[x].queued[test.tasks[job_count].biller];
+								}
+
+							}
+							if (!added_flag) {
+								proxies[position].queued[test.tasks[job_count].biller] ++;
+								test.tasks[job_count].proxy = position;
+							}
 						} 
 
 					}
