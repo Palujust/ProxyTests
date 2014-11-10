@@ -13,9 +13,13 @@
 
     <!-- Test Pattern Files -->
     <script type="text/javascript" src="tests.js"></script>
-
+    <script type="text/javascript" src="gtests.js"></script>
+    <!-- Code To Analyze Data -->
+    <script type="text/javascript" src="stats.js"></script>
     <!-- Main Script -->
     <script type="text/javascript" src="ProxyController.js"></script>
+
+
     <style>
     .proxy_box {
       margin: 20px;
@@ -46,8 +50,8 @@ Proxy Assignment:
 </select>
 Blocked Queue Algorithm
 <select id="q-algorithm">
-  <option value="1">Penalize (Send to Back)</option>
-  <option value="2">Skip</option>
+  <option value="1">Send to Back</option>
+  <option value="2">Bring First Best Forward</option>
 </select>
 Proxy Assigment Algorithm
 <select id="algorithm">

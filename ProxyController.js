@@ -1,14 +1,14 @@
-
+"use strict"
 //Need to specify in code: 
 //- max conncurrent running robots 
 //- which test pattern to use
 //both are in the startTests method near the top
-var proxy_array = [];
+var proxies = [];
 var waiting_queue =[];
 var testStats= [];
 var currently_running = [];
-
-var test_array =[t100by100, t5by5, t2by100, customtest];
+var robot_time_data;
+var test_array =[t100by100, t5by5, t2by100, customtest, test_grid]; //These are various generated test patterns stored in other JS files
 $(document).ready(function(){
 	
 	$("#button").click(function() {
@@ -34,9 +34,9 @@ function startTests(paramaters) {
 	$("#button").prop( "disabled", true );
 	$("body").append("<div id='test_num'></div>");
 	testStats = [];
-	var proxies = [];
-	var test_sequence = test_array[3];
-	var max_concurrent_tasks = 2;
+	proxies = [];
+	var test_sequence = test_array[2];
+	var max_concurrent_tasks = 10;
 	$(".proxy_box").remove();
 	for(var x = 0; x < paramaters.proxies; x++) {
 		proxies = proxies.concat({
@@ -56,7 +56,7 @@ function startTests(paramaters) {
 		console.log("--------------------------------------")
 		var job_count = 0;
 		var test_start = new Date().getTime();
-		var robot_time_data = [];
+		robot_time_data = [];
 		var billers_job_count = {};  //used for round robin proxy assignment
 		//This adds a new task to the waiting queue 
 		var new_robot_adder = setInterval(function() {
@@ -111,7 +111,7 @@ function startTests(paramaters) {
 				if (job_count > test.length) clearInterval(new_robot_adder)	
 			}
 
-		}, 100)
+		}, 10)
 		var robot_runner = setInterval(function() {
 			//update proxies list
 			for(var x = 0; x < paramaters.proxies; x++) {
@@ -129,67 +129,53 @@ function startTests(paramaters) {
 					test_data: robot_time_data
 				})
 				clearInterval(robot_runner);
-				//return callback();
+				return callback();
 			}
-			//TODO change 2 to 10 
 			if (currently_running.length < max_concurrent_tasks) {
 				//Implement the queuing logic.
 				if (waiting_queue.length > 0) {
 					if (waiting_queue[0].force_sequential == false) {
-						var robot = waiting_queue.shift();	
-						robot.endWaitTime = new Date().getTime();
-						currently_running.push(robot);
-						console.log("Running " + robot.biller + " id" + robot.id)
-						robot.proxy = 0;
-						proxies[0].Running.push({
-							biller: robot.biller,
-							id: robot.id
-						})
-						setTimeout(function() {
-							//remove from currently running
-							for(var i = 0; i < currently_running.length; i ++){
-								if (currently_running[i].id === robot.id){
-									 currently_running.splice(i, 1);
-									 break;
-								}
-							}
-							//remove from proxy's running list
-							for(var i = 0; i < proxies[robot.proxy].Running.length; i ++) {
-								if (proxies[robot.proxy].Running[i].id === robot.id){
-									proxies[robot.proxy].Running.splice(i, 1);
-									break;
-								}								
-							}
-							console.log("Robot " + robot.biller + " id" + robot.id + " finished")
-							robot_time_data.push({
-								startWaitTime: robot.startWaitTime,
-								endWaitTime: robot.endWaitTime,
-								waiting: robot.endWaitTime - robot.startWaitTime,
-								duration: robot.duration,
-								ratio: (robot.endWaitTime - robot.startWaitTime)/ robot.duration,
-							})
-						}, robot.duration)
-						currently_running.push()					
+						runRobot(0);				
 									
-					} else {
-						if (paramaters.proxy_assign == 1){
-							//Use assigned proxy
-						} else {
-							//try to find an available proxy
-						}
-						//check if current robot can be run
+					} else {	
+						//check if we can run the current robot
+						var data = canWeRunThisTask(waiting_queue[0], paramaters.proxy_assign);
 						//if so, run it
-
-						//else do this:
-						if (paramaters.q_algorithm == 1) {
-							//send to back
+						if (data.can_run){
+							
+							//Decrement number of waiting tasks on the proxy that was selected if we are using static allocation and the assignment algorithm is shortest queue
+							if (paramaters.proxy_assign_alg == 2 && paramaters.proxy_assign == 1) {
+								proxies[data.open_proxy].queued[waiting_queue[0].biller] --;
+							}
+							runRobot(data.open_proxy);
 						} else {
-							//pick the next robot
+							//else do this:
+							if (paramaters.q_algorithm == 1) {
+								//send to back
+								waiting_queue.push(waiting_queue.shift());
+							} else {
+								//find the next available robot and run it
+								for(var k = 0; k < waiting_queue.length; k++) {
+									var task = canWeRunThisTask(waiting_queue[k], paramaters.proxy_assign)
+									//move the element to the front so that we can process it
+									if (task.can_run){
+										var element = waiting_queue.splice(k, 1)[0];
+										waiting_queue.unshift(element)
+										
+										//Decrement number of waiting tasks on the proxy that was selected if we are using static allocation and the assignment algorithm is shortest queue
+										if (paramaters.proxy_assign_alg == 2 && paramaters.proxy_assign == 1) {
+											proxies[task.open_proxy].queued[waiting_queue[0].biller] --;
+										}
+										runRobot(task.open_proxy);
+										break;
+									}
+								}
+							}							
 						}
+
+
 					}
 				}
-
-
 
 			}
 		}, 10)
@@ -205,3 +191,76 @@ function startTests(paramaters) {
 
 }
 
+function runRobot(selected_proxy) {
+	var robot = waiting_queue.shift();	
+	robot.endWaitTime = new Date().getTime();
+	currently_running.push(robot);
+	console.log("Running " + robot.biller + " id" + robot.id)
+	robot.proxy = selected_proxy;
+	proxies[selected_proxy].Running.push({
+		biller: robot.biller,
+		id: robot.id
+	})
+	setTimeout(function() {
+		//remove from currently running
+		for(var i = 0; i < currently_running.length; i ++){
+			if (currently_running[i].id === robot.id){
+				 currently_running.splice(i, 1);
+				 break;
+			}
+		}
+		//remove from proxy's running list
+		for(var i = 0; i < proxies[robot.proxy].Running.length; i ++) {
+			if (proxies[robot.proxy].Running[i].id === robot.id){
+				proxies[robot.proxy].Running.splice(i, 1);
+				break;
+			}								
+		}
+		console.log("Robot " + robot.biller + " id" + robot.id + " finished")
+		robot_time_data.push({
+			startWaitTime: robot.startWaitTime,
+			endWaitTime: robot.endWaitTime,
+			waiting: robot.endWaitTime - robot.startWaitTime,
+			duration: robot.duration,
+			ratio: (robot.endWaitTime - robot.startWaitTime)/ robot.duration,
+		})
+	}, robot.duration)
+	currently_running.push()
+
+}
+function canWeRunThisTask(robot, proxy_assignment) {
+	var can_run = true;
+	var open_proxy;
+	if (proxy_assignment == 1){
+		//Use assigned proxy
+		for(var i = 0; i < proxies[robot.proxy].Running.length; i ++) {
+			if (proxies[robot.proxy].Running[i].biller == robot.biller) {
+				can_run = false;
+				break;
+			}
+		}
+		open_proxy = robot.proxy;
+	} else {
+		can_run = false;
+		//try to find an available proxy
+		for(var i = 0; i < proxies.length; i++) {
+			var good_proxy = true;
+			for(var j = 0; j < proxies[i].Running.length; j ++) {
+				if (proxies[i].Running[j].biller ==robot.biller) {
+					good_proxy = false;
+					break;
+				}
+			}
+			if (good_proxy) {
+				open_proxy = i;
+				can_run = true;
+				break;
+			}
+		}
+		
+	}
+	return {
+		can_run: can_run,
+		open_proxy: open_proxy
+	}
+}
