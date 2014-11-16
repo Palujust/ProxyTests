@@ -42,11 +42,24 @@ function collect_data(stats){
 	waitTimes.sort(function(a, b){return a-b});
 	testTimes.sort(function(a, b){return a-b});
 	Ratios.sort(function(a, b){return a-b});
-	return {
+
+	var stats = {
 		waitTimes: calculate_stats(waitTimes),
 		testTimes: calculate_stats(testTimes),
 		Ratios: calculate_stats(Ratios)
 	}
+	//get test name:
+	var billers = $("#sequentialBillers").val();
+	var proxies = $("#proxies").val();
+	var proxy_assign =$("#proxy-assignment :selected").text();
+	var q_algorithm = $("#q-algorithm :selected").text();
+	var proxy_assign_alg = $("#algorithm :selected").text();
+	var test_config = "Number of Billers: " + billers + " |Number of Proxies: " + proxies + " |Proxy Assignment: " + proxy_assign + " |Queue Algorithm: " + q_algorithm + " |Proxy Assignment Algorith: " + proxy_assign_alg
+	stats.testConfig = test_config;
+	//blob = new Blob([JSON.stringify(stats) + "," ], {type: "text/plain;charset=utf-8"});
+	//saveAs(blob, "DATA: " + test_config  +".txt");
+	console.log(stats);
+	return stats;
 }
 
 

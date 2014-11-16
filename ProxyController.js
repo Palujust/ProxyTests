@@ -8,7 +8,10 @@ var waiting_queue =[];
 var testStats= [];
 var currently_running = [];
 var robot_time_data;
-var test_array =[t100by100, t5by5, t2by100, customtest, test_grid]; //These are various generated test patterns stored in other JS files
+var test_array =[t10by100, t100by100, t5by5, t2by100, customtest, test_grid]; //These are various generated test patterns stored in other JS files
+var global_test_data_string = "Sequential Billers,Proxies, Proxy Assignment,Blocked Algorithm,Proxy Algorithm,T_Max,T_Q3,T_Median,T_Q1,T_Min,T_Average,W_Max,W_Q3,W_Median,W_Q1,W_Min,W_Average,R_Max,R_Q3,R_Median,R_Q1,R_Min,R_Average";
+var config_count = "0";
+var num_configs;
 $(document).ready(function(){
 	
 	$("#button").click(function() {
@@ -18,27 +21,75 @@ $(document).ready(function(){
 		var q_algorithm = $("#q-algorithm").val();
 		var proxy_assign_alg = $("#algorithm").val();
 
-		var paramaters = {
+		var parameters = {
 			billers: billers,
 			proxies: proxies,
 			proxy_assign: proxy_assign,
 			q_algorithm: q_algorithm,
 			proxy_assign_alg: proxy_assign_alg
 		}
-		startTests(paramaters)
+		startTests(parameters, function() {alert("hello")})
+	})
+	$("#button2").click(function() {
+		var test_configs = [];
+		for (var b = 1; b < 6; b++){
+			for(var p = 1; p< 6; p ++){
+				for(var p_a = 1; p_a < 3; p_a++){
+					for (var q = 1; q < 3; q ++){
+						if (p_a == 1){
+							for (var p_a_a = 1; p_a_a < 3; p_a_a ++){
+								test_configs.push({
+									billers: b,
+									proxies: p,
+									proxy_assign: p_a,
+									q_algorithm: q,
+									proxy_assign_alg: p_a_a
+								})
+							}
+						} else {
+							test_configs.push({
+									billers: b,
+									proxies: p,
+									proxy_assign: p_a,
+									q_algorithm: q,
+									proxy_assign_alg: 1
+							})
+						}
+					}
+				}
+			}
+		}
+		num_configs = test_configs.length;
+		async.forEachSeries(test_configs, function(config, callback){
+			config_count++;
+			startTests(config, callback)
+		}, function() {
+			console.log("Done ALL TESTS")
+			var blob = new Blob([global_test_data_string], {type: "text/plain;charset=utf-8"});
+			saveAs(blob, "test_data.csv");
+		})
+
+		
 	})
 })
-
-function startTests(paramaters) {
+function clearEverything() {
+	var proxies = [];
+	var waiting_queue =[];
+	var testStats= [];
+	var currently_running = [];
+	var robot_time_data = [];
+}
+function startTests(parameters, cb) {
 	//intialize
 	$("#button").prop( "disabled", true );
+	$("#button2").prop( "disabled", true );
 	$("body").append("<div id='test_num'></div>");
 	testStats = [];
 	proxies = [];
-	var test_sequence = test_array[2];
+	var test_sequence = test_array[0];
 	var max_concurrent_tasks = 10;
 	$(".proxy_box").remove();
-	for(var x = 0; x < paramaters.proxies; x++) {
+	for(var x = 0; x < parameters.proxies; x++) {
 		proxies = proxies.concat({
 			Running: [],
 			queued: {}
@@ -52,7 +103,7 @@ function startTests(paramaters) {
 	
 	async.forEachSeries(test_sequence, function(test, callback) {
 		console.log("Running test " + (test.id + 1) + " of " + test_sequence.length)
-		$("#test_num").text("Running test " + (test.id + 1) + " of " + test_sequence.length)
+		$("#test_num").text("Running test " + (test.id + 1) + " of " + test_sequence.length + " for config " + config_count + " /" + num_configs)
 		console.log("--------------------------------------")
 		var job_count = 0;
 		var test_start = new Date().getTime();
@@ -64,16 +115,16 @@ function startTests(paramaters) {
 				console.log("Adding " + test.tasks[job_count].biller + " id" + job_count + " to waiting queue")
 				test.tasks[job_count].startWaitTime = new Date().getTime();
 				test.tasks[job_count].id = job_count;
-				test.tasks[job_count].force_sequential = test.tasks[job_count].biller_number <= paramaters.billers ;
+				test.tasks[job_count].force_sequential = test.tasks[job_count].biller_number <= parameters.billers ;
 				//if we are forcing sequential and the proxy assignment is static, then we need to assign a proxy
 				if (test.tasks[job_count].force_sequential){
-					if (paramaters.proxy_assign == 1){
+					if (parameters.proxy_assign == 1){
 						//Round robin
 						console.log(JSON.stringify(billers_job_count))
-						if (paramaters.proxy_assign_alg ==1){
+						if (parameters.proxy_assign_alg ==1){
 							if (!billers_job_count[test.tasks[job_count].biller]) billers_job_count[test.tasks[job_count].biller] = 0;
 
-							test.tasks[job_count].proxy = billers_job_count[test.tasks[job_count].biller] % paramaters.proxies;
+							test.tasks[job_count].proxy = billers_job_count[test.tasks[job_count].biller] % parameters.proxies;
 							billers_job_count[test.tasks[job_count].biller]++;
 							console.log(test.tasks[job_count].biller + " id" + job_count + " proxy: " + test.tasks[job_count].proxy)
 						} else {
@@ -114,7 +165,7 @@ function startTests(paramaters) {
 		}, 10)
 		var robot_runner = setInterval(function() {
 			//update proxies list
-			for(var x = 0; x < paramaters.proxies; x++) {
+			for(var x = 0; x < parameters.proxies; x++) {
 				$("#div_" + x + " p").text(JSON.stringify(proxies[x].Running))
 			}
 
@@ -139,31 +190,31 @@ function startTests(paramaters) {
 									
 					} else {	
 						//check if we can run the current robot
-						var data = canWeRunThisTask(waiting_queue[0], paramaters.proxy_assign);
+						var data = canWeRunThisTask(waiting_queue[0], parameters.proxy_assign);
 						//if so, run it
 						if (data.can_run){
 							
 							//Decrement number of waiting tasks on the proxy that was selected if we are using static allocation and the assignment algorithm is shortest queue
-							if (paramaters.proxy_assign_alg == 2 && paramaters.proxy_assign == 1) {
+							if (parameters.proxy_assign_alg == 2 && parameters.proxy_assign == 1) {
 								proxies[data.open_proxy].queued[waiting_queue[0].biller] --;
 							}
 							runRobot(data.open_proxy);
 						} else {
 							//else do this:
-							if (paramaters.q_algorithm == 1) {
+							if (parameters.q_algorithm == 1) {
 								//send to back
 								waiting_queue.push(waiting_queue.shift());
 							} else {
 								//find the next available robot and run it
 								for(var k = 0; k < waiting_queue.length; k++) {
-									var task = canWeRunThisTask(waiting_queue[k], paramaters.proxy_assign)
+									var task = canWeRunThisTask(waiting_queue[k], parameters.proxy_assign)
 									//move the element to the front so that we can process it
 									if (task.can_run){
 										var element = waiting_queue.splice(k, 1)[0];
 										waiting_queue.unshift(element)
 										
 										//Decrement number of waiting tasks on the proxy that was selected if we are using static allocation and the assignment algorithm is shortest queue
-										if (paramaters.proxy_assign_alg == 2 && paramaters.proxy_assign == 1) {
+										if (parameters.proxy_assign_alg == 2 && parameters.proxy_assign == 1) {
 											proxies[task.open_proxy].queued[waiting_queue[0].biller] --;
 										}
 										runRobot(task.open_proxy);
@@ -184,6 +235,29 @@ function startTests(paramaters) {
 		$("#test_num").text("Done all tests")
 		console.log("--------------------------------------")
 		$("#button").prop( "disabled", false );
+		var stats = collect_data(testStats);
+
+		var prox_Assign;
+		var blocked_Alg;	
+		var prox_Assign_alg;
+		if (parameters.proxy_assign ==1){
+			prox_Assign = "Static"
+			if (parameters.proxy_assign_alg ==1){
+				prox_Assign_alg = "Round Robin"
+			} else {
+				prox_Assign_alg = "Shortest Queue"
+			}
+		} else{
+			prox_Assign = "Dynamic"
+			prox_Assign_alg = "-"
+		}
+		if (parameters.q_algorithm ==1){
+			blocked_Alg = "Send to Back"
+		} else{
+			blocked_Alg = "Bring First Best Forward"
+		}
+		global_test_data_string += "\n" + parameters.billers + "," + parameters.proxies + "," + prox_Assign + "," + blocked_Alg + "," + prox_Assign_alg + "," + stats.testTimes.max + "," + stats.testTimes.q3 + "," + stats.testTimes.median +"," + stats.testTimes.q1 +"," + stats.testTimes.min + "," + stats.testTimes.average + "," + stats.waitTimes.max + "," + stats.waitTimes.q3 + "," + stats.waitTimes.median +"," + stats.waitTimes.q1 +"," + stats.waitTimes.min + "," + stats.waitTimes.average + "," + stats.Ratios.max + "," + stats.Ratios.q3 + "," + stats.Ratios.median +"," + stats.Ratios.q1 +"," + stats.Ratios.min + "," + stats.Ratios.average
+		return cb();
 	})
 
 
@@ -233,6 +307,12 @@ function canWeRunThisTask(robot, proxy_assignment) {
 	var open_proxy;
 	if (proxy_assignment == 1){
 		//Use assigned proxy
+		if (robot.force_sequential == false) {
+			return {
+				can_run:true,
+				open_proxy: 0
+			}
+		}
 		for(var i = 0; i < proxies[robot.proxy].Running.length; i ++) {
 			if (proxies[robot.proxy].Running[i].biller == robot.biller) {
 				can_run = false;
